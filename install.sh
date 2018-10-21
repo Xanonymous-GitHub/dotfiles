@@ -100,7 +100,7 @@ askQuestion() {
     if [ "$2" = "Yn" ]
     then
         # Display question and default yes
-        echo -n $1 [Y/n]' '; read ans
+        printf "$1 [Y/n] "; read ans
         case $ans in
             [Nn*])
                 return 1
@@ -111,7 +111,7 @@ askQuestion() {
         esac
     else
         # Display question and default no
-        echo -n $1 [y/N]' '; read ans
+        printf "$1 [y/N] "; read ans
         case $ans in
             [Yy*]) 
                 return 0
@@ -184,6 +184,11 @@ main() {
                 sh -c "$(wget -qO- https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sed 's/env zsh -l//g')"
             fi
         fi
+        # Install powerlevel9k
+        if ! [ -d ~/.oh-my-zsh/custom/themes/powerlevel9k ]
+        then
+            git clone https://github.com/bhilburn/powerlevel9k.git ~/.oh-my-zsh/custom/themes/powerlevel9k
+        fi
         # Install zsh-autosuggestions
         if ! [ -d ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions ]
         then
@@ -199,6 +204,7 @@ main() {
             mv ~/.zshrc ~/.zshrc.bak
         fi
         echo "source ~/$REPO_NAME/config/zsh/sample.zshrc" >> ~/.zshrc
+        echo "DEFAULT_USER=$USER" >> ~/.zshrc
     fi
     
     # Apply configs about vim
