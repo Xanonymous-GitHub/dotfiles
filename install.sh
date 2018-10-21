@@ -1,209 +1,229 @@
-#! /usr/bin/env bash
+#!/bin/sh
 
-NAME=".shconf"
-URL="https://github.com/PinLin/$NAME"
+REPO_NAME=".shconf"
+REPO_URL="https://github.com/PinLin/$REPO_NAME"
 
 # Install application
-function makeInstall {
-    # Check argc
-    if [ $# -ge 1 ]; then
-        # macOS
-        if command -v brew > /dev/null 2>&1; then
+makeInstall() {
+    # Check counts of arguments
+    if [ $# -lt 1 ]
+    then
+        return -1
+    fi
+    
+    # Judge which is the package manager we used
+    kernel=$(uname -s)
+    if [ "$kernel" = "Darwin" ]
+    then
+        if command -v brew > /dev/null 2>&1
+        then
+            # macOS with brew
             brew install $1
             return $?
-        
-        # Debian / Ubuntu
-        elif command -v apt > /dev/null 2>&1; then
-            sudo apt install $1 -y
-            return $?
-
-        elif command -v apt-get > /dev/null 2>&1; then
-            sudo apt-get install $1 -y
-            return $?
-
-        # Fedora / CentOS
-        elif command -v dnf > /dev/null 2>&1; then
-            sudo dnf -y install $1
-            return $?
-
-        elif command -v yum > /dev/null 2>&1; then
-            sudo yum -y install $1
-            return $?
-
-        # Embedded
-        elif command -v ipkg > /dev/null 2>&1; then
-            sudo ipkg install $1
-            return $?
-
-        elif command -v opkg > /dev/null 2>&1; then
-            sudo opkg install $1
-            return $?
-
-        # None
         else
+            echo "You need to install Homebrew on your macOS before runing this script."
+            echo See this: https://brew.sh
             return 87
-
         fi
-    else
-        return -1
-    fi
+        
+    elif [ "$kernel" = "FreeBSD" ]
+    then
+        if command -v pkg > /dev/null 2>&1
+        then
+            # FreeBSD with pkg
+            sudo pkg install -y $1
+            return $?
+        else
+            echo "You need to install PKGNG on your FreeBSD before runing this script."
+            echo See this: https://wiki.freebsd.org/pkgng
+            return 87
+        fi
+        
+    elif [ "$kernel" = "Linux" ]
+    then
+        if command -v lsb_release > /dev/null 2>&1
+        then
+            os=$(echo $(lsb_release -i | cut -d ':' -f 2))
+        else
+            os=''
+        fi
+
+        case $os in
+            "Debian"|"Ubuntu")
+                # Debian/Ubuntu with apt-get
+                sudo apt-get install -y $1
+                return $?
+            ;;
+
+            "Fedora"|"CentOS")
+                if command -v dnf > /dev/null 2>&1
+                then
+                    # Fedora/CentOS with dnf
+                    sudo dnf install -y $1
+                    return $?
+                else
+                    # Fedora/CentOS with yum
+                    sudo yum install -y $1
+                    return $?
+                fi
+            ;;
+
+            *)
+                if command -v ipkg > /dev/null 2>&1
+                then
+                    # Embedded Device with ipkg
+                    sudo ipkg install $1
+                    return $?
+                fi
+
+                if command -v opkg > /dev/null 2>&1
+                then
+                    # Embedded Device with opkg
+                    sudo opkg install $1
+                    return $?
+                fi
+            ;;
+        esac
+    fi 
 }
+
 
 # Ask for question
-function askQuestion {
-    # Check argc
-    if [ $# -ge 2 ]; then
-        # default yes
-        if [ "$2" == "Yn" ]; then
-            # Display question
-            echo -n "$1 [Y/n] "
-            # Input answer
-            read ans
-            for no in 'n' 'N' 'no' 'No' 'NO' 'nO'; do
-                if [ "$ans" == "$no" ]; then ans="n"; break; fi
-            done
-        fi
-        if [ "$ans" != "n" ]; then ans="y"; fi
-        # default no
-        if [ "$2" == "yN" ]; then
-            # Display question
-            echo -n "$1 [y/N] "
-            # Input answer
-            read ans
-            for yes in 'y' 'Y' 'ye' 'Ye' 'yE' 'YE' 'yes' 'Yes' 'yEs' 'yeS' 'YEs' 'yES' 'YeS' 'YES'; do
-                if [ "$ans" == "$yes" ]; then ans="y"; break; fi
-            done
-        fi
-        if [ "$ans" != "y" ]; then ans="n"; fi
-        # result
-        [ "$ans" == "y" ]
-        return $?
-    else
+askQuestion() {
+    # Check counts of arguments
+    if [ $# -lt 2 ]
+    then
         return -1
+    fi
+
+    # Ask
+    if [ "$2" = "Yn" ]
+    then
+        # Display question and default yes
+        echo -n $1 [Y/n]' '; read ans
+        case $ans in
+            [Nn*])
+                return 1
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+    else
+        # Display question and default no
+        echo -n $1 [y/N]' '; read ans
+        case $ans in
+            [Yy*]) 
+                return 0
+                ;;
+            *) 
+                return 1
+                ;;
+        esac
     fi
 }
 
-function main {
 
-    # Require git
-    if ! command -v git > /dev/null 2>&1; then
-        # Ask for install git
-        if askQuestion "You must install git, but do you want to install git?" "Yn"; then
+main() {
+    # Check git
+    if ! command -v git > /dev/null 2>&1
+    then
+        echo "This installer uses git to clone the configs to localhost."
+        if askQuestion "Do you want to install git?" "Yn"
+        then
             makeInstall git
-            result=$?; if [ $result -ne 0 ]; then return $result; fi
-        else
-            return 0
         fi
     fi
 
-    # Remove local repo if exist
-    if [ -d ~/$NAME ]; then
-        rm -rf ~/$NAME
+    # Remove old one
+    if [ -d ~/$REPO_NAME ]
+    then
+        rm -rf ~/$REPO_NAME
     fi
-
-    # Clone repo
-    git clone $URL ~/$NAME
-    if [ $? != 0 ]; then
-        echo "Could not clone $NAME."
+    
+    # Clone repo to local
+    git clone $REPO_URL ~/$REPO_NAME
+    if [ $? != 0 ]
+    then
+        echo "Failed to clone $REPO_NAME."
         return 1
     fi
 
-    # Require zsh
-    if ! command -v zsh > /dev/null 2>&1; then
-        # Ask for install zsh
-        if askQuestion "You must install zsh, but do you want to install zsh?" "Yn"; then
-            makeInstall zsh
-            result=$?; if [ $result -ne 0 ]; then return $result; fi
+    # Ask for installing
+    todo=''
+    apps='zsh vim tmux'
+    for app in $apps
+    do
+        if ! command -v $app > /dev/null 2>&1
+        then
+            msg="Do you want to install and apply configs about $app?"
         else
-            return 0
+            msg="Do you want to apply configs about $app?"
         fi
+
+        if askQuestion "$msg" "Yn"
+        then
+            todo="$todo $app"
+        fi
+    done
+    if [ "$todo" != "" ]
+    then
+        makeInstall $todo
     fi
-    # Config zsh
-    if command -v zsh > /dev/null 2>&1; then
+    
+    # Apply configs about zsh
+    if echo $todo | grep zsh > /dev/null
+    then
         # Require oh-my-zsh
-        if ! [ -d ~/.oh-my-zsh ]; then
-            sh -c "$(curl -fsSL https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sed 's/env zsh//g')" || \
-            sh -c "$(wget -qO- https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sed 's/env zsh//g')"
+        if ! [ -d ~/.oh-my-zsh ]
+        then
+            if command -v curl > /dev/null 2>&1
+            then
+                sh -c "$(curl -fsSL https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sed 's/env zsh -l//g')"
+            else
+                sh -c "$(wget -qO- https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sed 's/env zsh -l//g')"
+            fi
         fi
         # Install zsh-autosuggestions
-        if ! [ -d ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions ]; then
+        if ! [ -d ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions ]
+        then
             git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
         fi
         # Install zsh-syntax-highlighting
-        if ! [ -d ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting ]; then
+        if ! [ -d ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting ]
+        then
             git clone https://github.com/zsh-users/zsh-syntax-highlighting ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
         fi
-        if [ -f ~/.zshrc ]; then
+        if [ -f ~/.zshrc ]
+        then
             mv ~/.zshrc ~/.zshrc.bak
         fi
-        echo "source ~/$NAME/config/zsh/sample.zshrc" >> ~/.zshrc
+        echo "source ~/$REPO_NAME/config/zsh/sample.zshrc" >> ~/.zshrc
     fi
-
-    # Check vim
-    if ! command -v vim > /dev/null 2>&1; then
-        # Ask for install vim
-        if askQuestion "Do you want to install vim?" "yN"; then
-            makeInstall vim
-            result=$?; if [ $result -ne 0 ]; then return $result; fi
-        fi
-    fi
-    # Config vim
-    if command -v vim > /dev/null 2>&1; then
-        if [ -f ~/.vimrc ]; then
+    
+    # Apply configs about vim
+    if echo $todo | grep vim > /dev/null
+    then
+        if [ -f ~/.vimrc ]
+        then
             mv ~/.vimrc ~/.vimrc.bak
         fi
-        echo "source ~/$NAME/config/vim/sample.vimrc" >> ~/.vimrc
+        echo "source ~/$REPO_NAME/config/vim/sample.vimrc" >> ~/.vimrc
     fi
-
-    # Check tmux
-    if ! command -v tmux > /dev/null 2>&1; then
-        # Ask for install tmux
-        if askQuestion "Do you want to install tmux?" "yN"; then
-            makeInstall tmux
-            result=$?; if [ $result -ne 0 ]; then return $result; fi
-        fi
-    fi
-    # Config tmux
-    if command -v tmux > /dev/null 2>&1; then
-        if [ -f ~/.tmux.conf ]; then
+    
+    # Apply configs about tmux
+    if echo $todo | grep tmux > /dev/null
+    then
+        if [ -f ~/.tmux.conf ]
+        then
             mv ~/.tmux.conf ~/.tmux.conf.bak
         fi
-        echo "source ~/$NAME/config/tmux/sample.tmux.conf" >> ~/.tmux.conf
+        echo "source ~/$REPO_NAME/config/tmux/sample.tmux.conf" >> ~/.tmux.conf
     fi
-
-    # Check pause
-    if ! command -v pause > /dev/null 2>&1; then
-        # Ask for install pause
-        if askQuestion "Do you want to install pause?" "yN"; then
-
-            # Check gcc
-            if ! command -v gcc > /dev/null 2>&1; then
-                # Ask for install gcc
-                if askQuestion "Do you want to install gcc?" "yN"; then
-                    makeInstall gcc
-                    result=$?; if [ $result -ne 0 ]; then return $result; fi
-                fi
-            fi
-            
-            # Install by `curl` or `wget`
-            curl -L https://raw.githubusercontent.com/PinLin/pause/master/install.sh | bash || \
-            wget -O- https://raw.githubusercontent.com/PinLin/pause/master/install.sh | bash
-            result=$?; if [ $result -ne 0 ]; then return $result; fi
-        fi
-    fi
-
-    # Check sl
-    if ! command -v sl > /dev/null 2>&1; then
-        # Ask for install sl
-        if askQuestion "Do you want to install sl?" "yN"; then
-            makeInstall sl
-            result=$?; if [ $result -ne 0 ]; then return $result; fi
-        fi
-    fi
-
+    
     # Finished
     echo
-    echo Done! $NAME was installed.
+    echo Done! $REPO_NAME was installed.
 }
 
 main
