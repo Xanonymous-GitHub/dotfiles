@@ -41,49 +41,32 @@ makeInstall() {
         
     elif [ "$kernel" = "Linux" ]
     then
-        if command -v lsb_release > /dev/null 2>&1
+        if command -v apt-get > /dev/null 2>&1
         then
-            os=$(echo $(lsb_release -i | cut -d ':' -f 2))
-        else
-            os=''
+            # Debian/Ubuntu with apt-get
+            sudo apt-get install -y $1
+            return $?
+        elif command -v dnf > /dev/null 2>&1
+        then
+            # Fedora/CentOS with dnf
+            sudo dnf install -y $1
+            return $?
+        elif command -v yum > /dev/null 2>&1
+        then
+            # Fedora/CentOS with yum
+            sudo yum install -y $1
+            return $?
+        elif command -v ipkg > /dev/null 2>&1
+        then
+            # Embedded Device with ipkg
+            sudo ipkg install $1
+            return $?
+        elif command -v opkg > /dev/null 2>&1
+        then
+            # Embedded Device with opkg
+            sudo opkg install $1
+            return $?
         fi
-
-        case $os in
-            "Debian"|"Ubuntu")
-                # Debian/Ubuntu with apt-get
-                sudo apt-get install -y $1
-                return $?
-            ;;
-
-            "Fedora"|"CentOS")
-                if command -v dnf > /dev/null 2>&1
-                then
-                    # Fedora/CentOS with dnf
-                    sudo dnf install -y $1
-                    return $?
-                else
-                    # Fedora/CentOS with yum
-                    sudo yum install -y $1
-                    return $?
-                fi
-            ;;
-
-            *)
-                if command -v ipkg > /dev/null 2>&1
-                then
-                    # Embedded Device with ipkg
-                    sudo ipkg install $1
-                    return $?
-                fi
-
-                if command -v opkg > /dev/null 2>&1
-                then
-                    # Embedded Device with opkg
-                    sudo opkg install $1
-                    return $?
-                fi
-            ;;
-        esac
     fi 
 }
 
