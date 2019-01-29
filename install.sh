@@ -1,7 +1,7 @@
 #!/bin/sh
 
 REPO_NAME=".shconf"
-REPO_URL="https://github.com/PinLin/$REPO_NAME"
+REPO_URL="https://github.com/PinLin/.shconf"
 
 # Install application
 makeInstall() {
