@@ -1,7 +1,8 @@
 #!/bin/sh
 
-REPO_NAME=".shconf"
 REPO_URL="https://github.com/PinLin/.shconf"
+REPO_NAME=".shconf"
+REPO_VERSION="v3.1"
 
 # Install application
 makeInstall() {
@@ -131,6 +132,8 @@ main() {
         echo "Failed to clone $REPO_NAME."
         return 1
     fi
+    cd ~/$REPO_NAME
+    git checkout $REPO_VERSION
 
     # Ask for installing
     todo=''
